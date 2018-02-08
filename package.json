@@ -1,0 +1,14 @@
+{
+  "name": "staticsever_nodejs",
+  "version": "1.0.0",
+  "description": "a static sever made with node.js",
+  "main": "main.js",
+  "scripts": {
+    "test": "node main.js"
+  },
+  "author": "iris hu",
+  "license": "ISC",
+  "dependencies": {
+    "http": "0.0.0"
+  }
+}

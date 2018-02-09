@@ -8,6 +8,7 @@ const fs = require('fs');
 const url = require('url');
 const mime = require('./mime');
 const cache = require('./cache');
+const responseError = require('./responseError');
 
 function route(filePath, request, response, config){
     // using stat method find file. if didn't find, server response error else read file and response it.
@@ -21,7 +22,7 @@ function route(filePath, request, response, config){
                 fileResponse(filePath, request, response, config);
             }
         } else {
-            fileNotFind(request, response);
+            responseError({code: 404}, response);
         }
     })
 }
@@ -43,11 +44,7 @@ function getFloder(filePath, request, response, cfg){
     function redirecting(req, res){
         console.log(`path redirecting to ${req.url}/`);
 
-        res.writeHead(301, {
-            'Content-Type': 'text/html',
-            'Location': `${req.url}/`
-        });
-        res.end(`Redirecting to <a href='${req.url}'>${req.url}</a>`);
+        responseError({code: 301, url: req.url}, res);
     }
 
     function floderSwitch(path, req, res){
@@ -65,9 +62,7 @@ function getFloder(filePath, request, response, cfg){
         console.log(`index not exists, show ${path} direction now.\n`)
         fs.readdir(path, (err, files) => {
             if (err) {
-                console.error(`read dir error: ${err}`);
-                res.writeHead(500);
-                return res.end(err);
+                responseError({code: 500, error: err}, res);
             }
             
             const floderName = url.parse(req.url).pathname;
@@ -89,12 +84,11 @@ function getFloder(filePath, request, response, cfg){
 // 读文件前，检查缓存是否过期
 function fileResponse(filePath, req, res, cfg){
     fs.stat(filePath, (err, stat) => {
-        if(err) return fileNotFind(req, res);
+        if(err) return responseError({code: 404}, response);
 
         cache.setFreshHeaders(stat, res, cfg.cache);
         if(cache.isFresh(req.headers, res._headers)){
-            console.log('cache 没过期', res._headers)
-            fileNotModifid(res);
+            responseError({code: 304}, res);
         } else {
             readFile(filePath, req, res);
         }
@@ -111,23 +105,6 @@ function readFile(filePath, request, response){
     response.writeHead(200, {'Content-Type': mime.setContentType(filePath)});
     readStream.pipe(response);
     readStream.on('error', err => console.error(`read file error: ${err}`))
-}
-
-// return not found
-function fileNotFind(request, response){
-    const path = './static-resource/notfound.html';
-
-    const readStream = fs.createReadStream(path);
-    response.writeHead(404, {
-        'Content-Type': mime.setContentType(path)
-    });
-    readStream.pipe(response);
-    readStream.on('error', err => console.error(`file not found ${err}`))
-}
-
-function fileNotModifid(res){
-    res.writeHead(304);
-    res.end();
 }
 
 module.exports = {

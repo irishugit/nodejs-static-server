@@ -7,17 +7,18 @@
 const fs = require('fs');
 const url = require('url');
 const mime = require('./mime');
+const cache = require('./cache');
 
-function route(filePath, request, response){
+function route(filePath, request, response, config){
     // using stat method find file. if didn't find, server response error else read file and response it.
     fs.stat(filePath, (err, stat) => {
         console.log(`directing to: ${filePath}`);
 
         if(!err) {
             if(stat.isDirectory()){
-                getFloder(filePath, request, response);
+                getFloder(filePath, request, response, config);
             } else {
-                readFile(filePath, request, response);
+                fileResponse(filePath, request, response, config);
             }
         } else {
             fileNotFind(request, response);
@@ -25,7 +26,7 @@ function route(filePath, request, response){
     })
 }
 
-function getFloder(filePath, request, response){
+function getFloder(filePath, request, response, cfg){
     // 检查是否有斜杠，没有重定向，有显示文件夹下的index.html或者目录
     if(hasTrailingSlash(filePath)){
         floderSwitch(filePath, request, response);
@@ -53,7 +54,7 @@ function getFloder(filePath, request, response){
         const indexPath = path + 'index.html';
         // index.html是否存在，存在读取，不存在就显示目录
         if(fs.existsSync(indexPath)){
-            readFile(indexPath, req, res);
+            fileResponse(indexPath, req, res, cfg);
         } else {
             showFloderDirection(path, req, res);
         }
@@ -85,6 +86,22 @@ function getFloder(filePath, request, response){
     }
 }
 
+// 读文件前，检查缓存是否过期
+function fileResponse(filePath, req, res, cfg){
+    fs.stat(filePath, (err, stat) => {
+        if(err) return fileNotFind(req, res);
+
+        cache.setFreshHeaders(stat, res, cfg.cache);
+        if(cache.isFresh(req.headers, res._headers)){
+            console.log('cache 没过期', res._headers)
+            fileNotModifid(res);
+        } else {
+            readFile(filePath, req, res);
+        }
+    });
+}
+
+
 // read file
 function readFile(filePath, request, response){
     console.log(`read file ${filePath}`);
@@ -106,6 +123,11 @@ function fileNotFind(request, response){
     });
     readStream.pipe(response);
     readStream.on('error', err => console.error(`file not found ${err}`))
+}
+
+function fileNotModifid(res){
+    res.writeHead(304);
+    res.end();
 }
 
 module.exports = {

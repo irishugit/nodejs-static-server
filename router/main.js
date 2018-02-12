@@ -43,7 +43,6 @@ function getFloder(filePath, request, response, cfg){
     // 重定向到添加斜杠的地址
     function redirecting(req, res){
         console.log(`path redirecting to ${req.url}/`);
-
         responseError({code: 301, url: req.url}, res);
     }
 
